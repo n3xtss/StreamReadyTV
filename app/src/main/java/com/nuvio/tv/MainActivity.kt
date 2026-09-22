@@ -140,6 +140,7 @@ import com.nuvio.tv.core.deeplink.DeepLinkHandler
 import com.nuvio.tv.core.deeplink.DeepLinkParser
 import com.nuvio.tv.core.player.PlayerWindowBackdrop
 import com.nuvio.tv.core.profile.ProfileManager
+import com.nuvio.tv.core.provisioning.StreamReadyProvisioningService
 import com.nuvio.tv.core.sync.ProfileSyncService
 import com.nuvio.tv.core.sync.StartupSyncService
 import com.nuvio.tv.core.tracking.TrackingProgressRefreshCoordinator
@@ -297,6 +298,9 @@ open class MainActivity : ComponentActivity() {
     lateinit var appOnboardingDataStore: AppOnboardingDataStore
 
     @Inject
+    lateinit var streamReadyProvisioningService: StreamReadyProvisioningService
+
+    @Inject
     lateinit var avatarRepository: AvatarRepository
 
     @Inject
@@ -388,6 +392,7 @@ open class MainActivity : ComponentActivity() {
             var focusedSplashCacheKey by remember { mutableStateOf<String?>(null) }
             var focusedSplashTheme by remember { mutableStateOf<AppTheme?>(null) }
             var onboardingCompletedThisSession by remember { mutableStateOf(false) }
+            var streamReadyProvisioningReady by remember { mutableStateOf(false) }
             var onboardingProfileSyncInProgress by remember { mutableStateOf(false) }
             val hasSeenAuthQrFlow = remember(appOnboardingDataStore) {
                 appOnboardingDataStore.hasSeenAuthQrOnFirstLaunch.map<Boolean, Boolean?> { it }
@@ -395,6 +400,11 @@ open class MainActivity : ComponentActivity() {
             val hasSeenAuthQrOnFirstLaunch by hasSeenAuthQrFlow.collectAsState(initial = null)
             val authState by authManager.authState.collectAsState()
             val context = LocalContext.current
+
+            LaunchedEffect(streamReadyProvisioningService) {
+                streamReadyProvisioningService.ensureProvisioned()
+                streamReadyProvisioningReady = true
+            }
 
             LaunchedEffect(authSessionNoticeDataStore, context) {
                 authSessionNoticeDataStore.pendingNotice.collect { notice ->
@@ -705,7 +715,8 @@ open class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.fillMaxSize()) {
 
                     var startupDestination = StartupDestination.Loading
-                    val surfaceContentReady = hasSeenAuthQrOnFirstLaunch != null &&
+                    val surfaceContentReady = streamReadyProvisioningReady &&
+                        hasSeenAuthQrOnFirstLaunch != null &&
                         authState !is AuthState.Loading
 
                     if (!surfaceContentReady) {
