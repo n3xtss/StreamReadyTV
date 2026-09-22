@@ -23,7 +23,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "My Application"
+rootProject.name = "StreamReadyTV"
 include(":app")
 include(":baselineprofile")
 include(":ffmpeg-decoder-downmix")
