@@ -95,6 +95,38 @@ class AddonPreferences @Inject constructor(
         }
     }
 
+    suspend fun replaceInstalledAddons(
+        urls: List<String>,
+        enabledStates: Map<String, Boolean> = emptyMap(),
+        userSetNames: Map<String, String> = emptyMap()
+    ) {
+        val active = profileManager.activeProfile
+        if (active != null && !active.isPrimary && active.usesPrimaryAddons) return
+
+        val normalizedUrls = urls
+            .map(::canonicalizeUrl)
+            .filter { it.isNotBlank() }
+            .distinct()
+
+        val normalizedStates = enabledStates
+            .mapKeys { (url, _) -> canonicalizeUrl(url) }
+            .filterKeys { it in normalizedUrls }
+
+        val normalizedNames = userSetNames
+            .mapKeys { (url, _) -> canonicalizeUrl(url) }
+            .filterKeys { it in normalizedUrls }
+            .filterValues { it.isNotBlank() }
+
+        store().edit { preferences ->
+            preferences[orderedUrlsKey] = gson.toJson(normalizedUrls)
+            preferences.remove(legacyUrlsKey)
+            preferences[addonEnabledStatesKey] = gson.toJson(
+                normalizedUrls.associateWith { url -> normalizedStates[url] ?: true }
+            )
+            preferences[userSetNamesKey] = gson.toJson(normalizedNames)
+        }
+    }
+
     suspend fun addAddon(url: String): Boolean {
            val active = profileManager.activeProfile
            if (active != null && !active.isPrimary && active.usesPrimaryAddons) return false
