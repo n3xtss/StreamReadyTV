@@ -215,6 +215,34 @@ class ProfileSettingsSyncService @Inject constructor(
         }
     }
 
+    suspend fun exportLocalProfileSettings(
+        profileId: Int = profileManager.activeProfileId.value
+    ): JsonObject = withContext(Dispatchers.IO) {
+        exportSettingsBlob(profileId)
+    }
+
+    suspend fun importLocalProfileSettings(
+        settingsJson: JsonObject,
+        profileId: Int = profileManager.activeProfileId.value
+    ): Result<Unit> = withContext(Dispatchers.IO) {
+        syncMutex.withLock {
+            try {
+                val featuresJson = settingsJson["features"]?.jsonObject ?: settingsJson
+                applySettingsBlob(
+                    profileId = profileId,
+                    featuresJson = featuresJson,
+                    signature = buildSettingsSignature(featuresJson)
+                )
+                Result.success(Unit)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to import local profile settings for profile $profileId", e)
+                Result.failure(e)
+            }
+        }
+    }
+
     suspend fun pushCurrentProfileToRemote(): Result<Unit> = withContext(Dispatchers.IO) {
         syncMutex.withLock {
             try {
